@@ -1,24 +1,25 @@
 # %% [markdown]
-# # Wing Corrosion — v2 (time + cumulative exposure, calibrated)
+# # Wing Corrosion — v3 (true age-since-delivery + cumulative exposure, calibrated)
 #
 # Self-contained Kaggle notebook source (jupytext py:percent). Paired notebook
 # (`wing-corrosion-baseline.ipynb`) is what gets pushed to Kaggle; the `.ipynb`
 # is gitignored per the repo's jupytext-source-of-truth policy.
 #
-# **Key idea over v1:** the positive (observation month) and negative (24 months
-# earlier) are the *same aircraft at the same airport*, so the *instantaneous*
-# monthly environment barely separates them. Corrosion is progressive, so the
-# real signal is **time** and **cumulative exposure**:
+# Corrosion is progressive, so the dominant signal is **age since delivery** plus
+# **cumulative environmental exposure**. Age-at-first-observed-corrosion is sharply
+# peaked (~5-6 years); the negative reference point is exactly 24 months earlier.
 #
-# - `age_months` — months since the aircraft's first record (delivery proxy);
-# - `mean_<feature>` — running cumulative *mean* of each variable (a level, not a
-#   total -> robust to the train/test shift where test aircraft are older).
+# **Key fix over v2:** v2 approximated age as *months since the first environmental
+# record*, but that matches true delivery only ~43% of the time in training. Here:
 #
-# Classifier is isotonic-calibrated (Brier rewards calibrated probabilities).
+# - **Training** uses the *true* delivery date (from corrosions_training);
+# - **Test** has no delivery date, but the test fleet was all delivered in 2014 and
+#   their histories start at delivery, so we use the first record as the proxy.
 #
-# Local 5-fold GroupKFold Brier (grouped by aircraft): 0.142 vs 0.207 for v1.
+# This makes age_months mean the same real quantity in both sets, which transfers
+# better to the older 2014 test fleet.
 #
-# **Public LB Brier: 0.23211**
+# **Public LB Brier: 0.21718**
 
 # %%
 from pathlib import Path
@@ -45,32 +46,47 @@ META = [ID, YM, "month_start_date"]
 # %% [markdown]
 # ## Feature engineering
 #
-# Computed per aircraft over its full monthly history, in time order. Cumulative
-# features are strictly within-aircraft and causal, so applying this to the test
-# set independently introduces no leakage.
+# `delivery` is a per-aircraft Period('M'). Cumulative means are within-aircraft
+# and causal.
 
 # %%
-def add_features(df, feat_cols):
+def add_features(df, feat_cols, delivery):
+    """delivery: Series indexed by aircraft_id giving the delivery Period('M')."""
     df = df.sort_values([ID, YM]).copy()
     ymp = pd.PeriodIndex(df[YM], freq="M")
-    firstp = pd.PeriodIndex(df.groupby(ID)[YM].transform("min"), freq="M")
-    df["age_months"] = (ymp - firstp).map(lambda x: x.n)
+    dvals = pd.PeriodIndex(delivery.reindex(df[ID]).values, freq="M")
+    df["age_months"] = [(a - d).n for a, d in zip(ymp, dvals)]
     g = df.groupby(ID)
+    denom = df["age_months"].clip(lower=0) + 1
     for c in feat_cols:
-        df[f"mean_{c}"] = g[c].cumsum() / (df["age_months"] + 1)
+        df[f"mean_{c}"] = g[c].cumsum() / denom
     return df
 
 
 # %% [markdown]
-# ## Build the (1 / 0) target and the training matrix
+# ## Build the (1 / 0) target and the training matrix (true delivery age)
 
 # %%
 env_train = pd.read_csv(DATA_DIR / "environment_training.csv")
 corr_train = pd.read_csv(DATA_DIR / "corrosions_training.csv")
 corr_train["observation_date"] = pd.to_datetime(corr_train["observation_date"])
 
+# True delivery period per training aircraft
+deliv_train = pd.PeriodIndex(
+    pd.to_datetime(
+        dict(
+            year=corr_train["aircraft_delivery_year"],
+            month=corr_train["aircraft_delivery_month"],
+            day=1,
+        )
+    ),
+    freq="M",
+)
+delivery_train = pd.Series(deliv_train, index=corr_train[ID])
+delivery_train = delivery_train[~delivery_train.index.duplicated()]
+
 raw_feats = [c for c in env_train.columns if c not in META]
-env_train = add_features(env_train, raw_feats)
+env_train = add_features(env_train, raw_feats, delivery_train)
 
 pos = corr_train.copy()
 pos[YM] = pos["observation_date"].dt.to_period("M").astype(str)
@@ -99,11 +115,19 @@ model = CalibratedClassifierCV(
 model.fit(X, y)
 
 # %% [markdown]
-# ## Predict on the full test history and write the submission
+# ## Predict on test (delivery proxy = first environmental record)
 
 # %%
 env_test = pd.read_csv(DATA_DIR / "environment_test.csv")
-env_test = add_features(env_test, raw_feats)
+
+# Test has no delivery date; the 2014 fleet's history starts at delivery, so use
+# each aircraft's first recorded month as the delivery proxy.
+first_month = env_test.groupby(ID)[YM].min()
+delivery_test = pd.Series(
+    pd.PeriodIndex(first_month, freq="M"), index=first_month.index
+)
+
+env_test = add_features(env_test, raw_feats, delivery_test)
 proba = model.predict_proba(env_test[feature_cols])[:, 1]
 submission = pd.DataFrame(
     {"id": env_test[ID] + "_" + env_test[YM], "corrosion_risk": proba}
