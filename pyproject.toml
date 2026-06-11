@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wing-corrosion"
+version = "0.1.0"
+description = "Workspace package for the wing-corrosion ML experiments."
+requires-python = ">=3.12"
+dependencies = [
+    "pandas>=2.0.0",
+    "pyarrow>=17.0.0",
+    "scikit-learn>=1.5.0",
+    "skore[hub,jupyter]>=0.3.0",
+    "skrub>=0.3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.8.0",
+    "pytest>=8.0.0",
+    "jupyterlab>=4.0.0",
+    "ipykernel>=6.0.0",
+]
+
+[dependency-groups]
+agent = [
+    "ipython>=8.0.0",
+    "pyright>=1.1.0",
+]
