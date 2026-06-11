@@ -52,3 +52,8 @@ You'll also present a **pitch** explaining your approach. The presenter cares no
 ## The value lesson
 
 Airlines initially rejected the idea of a corrosion prediction model ("I don't want predictions, I want *no corrosion* — a prediction just forces costly maintenance on me"). Airbus's answer leveraged the fact that aircraft fly repetitive route patterns, so their environment is roughly stable over their lifetime. The proposed solution: **swap aircraft between routes** so that fast-corroding aircraft are moved to gentler environments, ideally ensuring all aircraft reach corrosion only at end-of-life. The takeaway the presenter insists on: prediction itself solves problems and makes money — *"knowledge has value."*
+
+
+## License
+
+Dataset is [Apache V2.0](https://www.apache.org/licenses/LICENSE-2.0)
