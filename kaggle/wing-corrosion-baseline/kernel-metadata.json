@@ -1,0 +1,15 @@
+{
+  "id": "slevin48/wing-corrosion-baseline",
+  "title": "Wing Corrosion Baseline",
+  "code_file": "wing-corrosion-baseline.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": false,
+  "competition_sources": [
+    "haks-airbus-x-ibm-x-aws-2026"
+  ],
+  "dataset_sources": [],
+  "kernel_sources": []
+}
