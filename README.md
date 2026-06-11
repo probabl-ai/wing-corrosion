@@ -1,6 +1,8 @@
 # wing corrosion predictive model for maintenance
 IBM x Airbus Hackathon on wing corrosion dataset ✈
 
+https://www.kaggle.com/competitions/haks-airbus-x-ibm-x-aws-2026
+
 ## Context: Why this problem matters
 
 Airbus aircraft are corroding much faster than expected, causing significant dissatisfaction among airlines. Aircraft undergo scheduled maintenance visits ("C-checks", e.g., after 6 years) where parts are repaired or replaced — but corrosion problems are appearing *before* these scheduled visits, meaning airlines discover issues during operations. Severe corrosion on wings is extremely costly to repair, requiring corroded sections to be cut out and replaced with plates.
